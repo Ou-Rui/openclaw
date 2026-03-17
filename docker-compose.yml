@@ -1,7 +1,8 @@
 services:
   openclaw-gateway:
     image: ${OPENCLAW_IMAGE:-openclaw:local}
-    environment:      # 环境变量
+    environment:
+      # 环境变量
       HOME: /home/node
       TERM: xterm-256color
       OPENCLAW_GATEWAY_TOKEN: ${OPENCLAW_GATEWAY_TOKEN:-}
@@ -9,7 +10,8 @@ services:
       CLAUDE_AI_SESSION_KEY: ${CLAUDE_AI_SESSION_KEY:-}
       CLAUDE_WEB_SESSION_KEY: ${CLAUDE_WEB_SESSION_KEY:-}
       CLAUDE_WEB_COOKIE: ${CLAUDE_WEB_COOKIE:-}
-    volumes:          # 挂载路径
+      TZ: ${OPENCLAW_TZ:-UTC}
+    volumes:
       - ${OPENCLAW_CONFIG_DIR}:/home/node/.openclaw
       - ${OPENCLAW_WORKSPACE_DIR}:/home/node/.openclaw/workspace
       ## Uncomment the lines below to enable sandbox isolation
@@ -18,59 +20,66 @@ services:
       ## docker-setup.sh with OPENCLAW_SANDBOX=1 for automated setup.
       ## Set DOCKER_GID to the host's docker group GID (run: stat -c '%g' /var/run/docker.sock).
       # - /var/run/docker.sock:/var/run/docker.sock
-    # group_add:
-    #   - "${DOCKER_GID:-999}"
-    ports:  # 端口映射, IP:{宿主机端口号}:{容器内端口号}
-      - "127.0.0.1:${OPENCLAW_GATEWAY_PORT:-18789}:18789"   # 主入口: WebSocket+HTTP, CLI
-      - "127.0.0.1:${OPENCLAW_BRIDGE_PORT:-18790}:18790"    # 桥接端口, 远端节点接入, ios, android
-    init: true    # 给容器加一个最小 init 进程（处理僵尸进程、转发信号）。容器更稳，停机/重启更干净。
-    restart: unless-stopped   # 容器异常退出会自动拉起, 除非手动stop，保证容器持续运行
-    command:      # 容器启动时运行的主进程命令
+      # group_add:
+      #   - "${DOCKER_GID:-999}"
+    ports:
+      # 端口映射, IP:{宿主机端口号}:{容器内端口号}
+      - "127.0.0.1:${OPENCLAW_GATEWAY_PORT:-18789}:18789" # 主入口: WebSocket+HTTP, CLI
+      - "127.0.0.1:${OPENCLAW_BRIDGE_PORT:-18790}:18790" # 桥接端口, 远端节点接入, ios, android
+    init: true # 给容器加一个最小 init 进程（处理僵尸进程、转发信号）。容器更稳，停机/重启更干净。
+    restart: unless-stopped # 容器异常退出会自动拉起, 除非手动stop，保证容器持续运行
+    command:
+      # 容器启动时运行的主进程命令
       [
-        "node",               # 用node运行JS程序
-        "dist/index.js",      # openclaw项目的主入口文件
-        "gateway",            # 传给入口文件的子命令 == openclaw gateway, 表示这个进程作为网关gateway
-        "--bind",             # 指定监听地址策略, .env里是loopback
+        "node", # 用node运行JS程序
+        "dist/index.js", # openclaw项目的主入口文件
+        "gateway", # 传给入口文件的子命令 == openclaw gateway, 表示这个进程作为网关gateway
+        "--bind", # 指定监听地址策略, .env里是loopback
         "${OPENCLAW_GATEWAY_BIND:-lan}",
-        "--port",             # 容器内网关监听的端口号
-        "18789",
+        "--port", # 容器内网关监听的端口号
+        "18789"
       ]
-    healthcheck:  # 定期检查容器健康状态
+    healthcheck:
+      # 定期检查容器健康状态
       test:
         [
-          "CMD",   # 在容器内执行命令并用退出码判定健康
-          "node",  # 用 node 执行内联脚本
-          "-e",    # 后接一段 JS 表达式
-          "fetch('http://127.0.0.1:18789/healthz').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",  # 请求健康端点，成功返回0，失败返回1
-        ]
-      interval: 30s      # 每30秒检查一次
-      timeout: 5s        # 单次检查超时5秒
-      retries: 5         # 连续失败5次判为unhealthy
-      start_period: 20s  # 启动后20秒内失败不计入重试
+          "CMD", # 在容器内执行命令并用退出码判定健康
+          "node", # 用 node 执行内联脚本
+          "-e", # 后接一段 JS 表达式
+          "fetch('http://127.0.0.1:18789/healthz').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+        ] # 请求健康端点，成功返回0，失败返回1
+      interval: 30s # 每30秒检查一次
+      timeout: 5s # 单次检查超时5秒
+      retries: 5 # 连续失败5次判为unhealthy
+      start_period: 20s # 启动后20秒内失败不计入重试
 
   openclaw-cli:
-    image: ${OPENCLAW_IMAGE:-openclaw:local}      # 复用镜像
-    network_mode: "service:openclaw-gateway"      # 复用gateway的网络
-    cap_drop:   # Drop部分权限
-      - NET_RAW     # 不允许构造原始包
-      - NET_ADMIN   # 不允许更改网络配置
+    image: ${OPENCLAW_IMAGE:-openclaw:local} # 复用镜像
+    network_mode: "service:openclaw-gateway" # 复用gateway的网络
+    cap_drop:
+      # Drop部分权限
+      - NET_RAW # 不允许构造原始包
+      - NET_ADMIN # 不允许更改网络配置
     security_opt:
-      - no-new-privileges:true   # 禁止进程通过setuid等方式提权
-    environment:     # CLI容器运行时环境变量
+      - no-new-privileges:true # 禁止进程通过setuid等方式提权
+    environment:
+      # CLI容器运行时环境变量
       HOME: /home/node
       TERM: xterm-256color
       OPENCLAW_GATEWAY_TOKEN: ${OPENCLAW_GATEWAY_TOKEN:-}
       OPENCLAW_ALLOW_INSECURE_PRIVATE_WS: ${OPENCLAW_ALLOW_INSECURE_PRIVATE_WS:-}
-      BROWSER: echo   # 禁止CLI尝试自动拉起宿主机浏览器
+      BROWSER: echo # 禁止CLI尝试自动拉起宿主机浏览器
       CLAUDE_AI_SESSION_KEY: ${CLAUDE_AI_SESSION_KEY:-}
       CLAUDE_WEB_SESSION_KEY: ${CLAUDE_WEB_SESSION_KEY:-}
       CLAUDE_WEB_COOKIE: ${CLAUDE_WEB_COOKIE:-}
-    volumes:    # 与gateway挂载相同的目录
+      TZ: ${OPENCLAW_TZ:-UTC}
+    volumes:
       - ${OPENCLAW_CONFIG_DIR}:/home/node/.openclaw
       - ${OPENCLAW_WORKSPACE_DIR}:/home/node/.openclaw/workspace
-    stdin_open: true   # 保持STDIN打开，支持交互命令
-    tty: true          # 分配伪终端，保证交互式输出正常
-    init: true         # 注入最小init，处理信号和僵尸进程
-    entrypoint: ["node", "dist/index.js"]   # CLI入口程序（不同子命令由run参数传入）
-    depends_on:        # 启动顺序依赖：先启动gateway再启动cli容器
+    stdin_open: true # 保持STDIN打开，支持交互命令
+    tty: true # 分配伪终端，保证交互式输出正常
+    init: true # 注入最小init，处理信号和僵尸进程
+    entrypoint: [ "node", "dist/index.js" ] # CLI入口程序（不同子命令由run参数传入）
+    depends_on:
+      # 启动顺序依赖：先启动gateway再启动cli容器
       - openclaw-gateway
