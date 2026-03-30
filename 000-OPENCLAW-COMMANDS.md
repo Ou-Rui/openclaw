@@ -24,6 +24,15 @@ docker compose -f docker-compose.yml -f docker-compose.extra.yml up -d openclaw-
 docker compose -f docker-compose.yml -f docker-compose.extra.yml stop openclaw-gateway
 ```
 
+## docker内运行openclaw命令
+
+```bash
+openclaw plugins install @tencent-connect/openclaw-qqbot@latest
+==
+docker compose -f docker-compose.yml -f docker-compose.extra.yml run --rm openclaw-cli \
+  plugins install @tencent-connect/openclaw-qqbot@latest
+```
+
 ## 批准最新的配对
 
 ```bash
